@@ -1,0 +1,71 @@
+# Android build output and IDE state
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/.kotlin/
+android/local.properties
+*.apk
+
+# Python
+__pycache__/
+*.pyc
+
+# Machine-specific or secret
+# (pairing.txt holds the Wi-Fi pairing code, generated per machine)
+windows/pairing.txt
+.vscode/
+*.log
+windows/settings.json
+windows/logs/
+windows/deck.json
+
+# AI agent files (instructions, memory, local settings): kept on this machine only
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.aider*
+.codex/
+.windsurf/
+.continue/
+.clinerules
+.roo/
+.windsurfrules
+.github/copilot-instructions.md
+
+# Secrets: environment files, API keys, signing keys
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+keystore.properties
+secrets.*
+google-services.json
+
+# Batch files (run, test, measure, build, gradlew.bat): kept on this machine only
+*.bat
+
+# Tests and their output: kept on this machine only
+windows/tests/
+windows/sims/
+android/app/src/test/
+self_test.log
+measure.log
+screenshots/
+scratch/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Built apps (tools/build_windows.bat, tools/build_android.bat)
+/dist/
+/build/

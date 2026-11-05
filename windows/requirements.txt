@@ -1,0 +1,18 @@
+numpy>=1.24
+sounddevice>=0.4.6
+# status window tray icon (optional)
+pystray
+Pillow
+# button deck: Windows actions (pywin32) and the editor window (customtkinter)
+pywin32
+customtkinter
+# Bluetooth transport (optional, Windows only)
+winrt-runtime
+winrt-Windows.Foundation
+winrt-Windows.Foundation.Collections
+winrt-Windows.Devices.Bluetooth
+winrt-Windows.Devices.Bluetooth.Rfcomm
+winrt-Windows.Devices.Enumeration
+winrt-Windows.Networking
+winrt-Windows.Networking.Sockets
+winrt-Windows.Storage.Streams

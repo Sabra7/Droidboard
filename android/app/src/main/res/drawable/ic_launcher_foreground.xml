@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon: three deck keys and a green mic (Lucide mic), inside the 66dp safe zone of the 108dp canvas -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+        <path android:fillColor="#F2F2F5" android:pathData="M40.84,36.84h6.52a4,4 0,0 1,4 4v6.52a4,4 0,0 1,-4 4h-6.52a4,4 0,0 1,-4 -4v-6.52a4,4 0,0 1,4 -4z" />
+        <path android:fillColor="#F2F2F5" android:pathData="M60.64,36.84h6.52a4,4 0,0 1,4 4v6.52a4,4 0,0 1,-4 4h-6.52a4,4 0,0 1,-4 -4v-6.52a4,4 0,0 1,4 -4z" />
+        <path android:fillColor="#F2F2F5" android:pathData="M40.84,56.64h6.52a4,4 0,0 1,4 4v6.52a4,4 0,0 1,-4 4h-6.52a4,4 0,0 1,-4 -4v-6.52a4,4 0,0 1,4 -4z" />
+        <group android:translateX="55.98" android:translateY="55.32" android:scaleX="0.66" android:scaleY="0.66">
+            <path android:strokeColor="#39D353" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round"
+                android:pathData="M12,2a3,3 0,0 0,-3 3v7a3,3 0,0 0,6 0V5a3,3 0,0 0,-3 -3Z" />
+            <path android:strokeColor="#39D353" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round"
+                android:pathData="M19,10v2a7,7 0,0 1,-14 0v-2" />
+            <path android:strokeColor="#39D353" android:strokeWidth="3" android:strokeLineCap="round"
+                android:pathData="M12,19L12,22" />
+        </group>
+</vector>
