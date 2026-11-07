@@ -6,6 +6,9 @@
 
 حوّل جوالك أو تابلتك الأندرويد إلى مايك، ولوحة أزرار، وكاميرا ويب، وشاشة ثانية للابتوبك الويندوز.
 
+[![Download for Android](https://img.shields.io/badge/Download_for-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Sabra7/Droidboard/releases/latest/download/Droidboard.apk)
+[![Download for Windows](https://img.shields.io/badge/Download_for-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Sabra7/Droidboard/releases/latest/download/Droidboard-windows.zip)
+
 ![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Android 8+](https://img.shields.io/badge/Android-8%2B-3DDC84)
