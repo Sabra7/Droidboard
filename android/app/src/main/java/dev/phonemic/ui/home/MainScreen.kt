@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -292,6 +293,11 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
                     Text("Droidboard", fontSize = Ui.Title, fontWeight = FontWeight.SemiBold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onBackground)
+                    // full screen: the Screen tab opens the laptop picture (the cast) over everything
+                    if (motion.shown == AppTab.SCREEN) {
+                        GlassIconButton("maximize", "Full screen", onClick = { ScreenClient.start(ctx); ScreenUi.visible = true })
+                        Spacer(Modifier.width(8.dp))
+                    }
                     GlassIconButton("settings", "Settings", onClick = { showLinks = true })
                 }
 
