@@ -63,12 +63,9 @@ def mode_index():
     return 1 if ctk.get_appearance_mode() == "Dark" else 0
 
 
-class Lamp(ctk.CTkFrame):
-    """The small green lamp of something live (ON AIR), the same one the phone app shows."""
-
-    def __init__(self, master, text):
-        super().__init__(master, fg_color="transparent", border_width=1, border_color=GOOD, corner_radius=4)
-        ctk.CTkLabel(self, text=text, font=(MONO, 10), text_color=GOOD, height=14).pack(padx=5, pady=1)
+def live_dot(master):
+    """The small green dot of something live (the voice reaches Windows), the same dot the phone app shows."""
+    return ctk.CTkLabel(master, text="●", font=(FONT, 11), text_color=GOOD, width=8, height=14)
 
 
 class Tile:
@@ -142,7 +139,7 @@ class Rows:
         self._actions = []
 
     def show(self, rows):
-        """rows: [(glyph, color, name, detail, right)], optionally a lamp next to the name ("ON AIR") and a
+        """rows: [(glyph, color, name, detail, right)], optionally a live dot next to the name (any non-empty value) and a
         seventh item, an action that runs when the row is clicked"""
         rows = [(*row, "", None)[:7] if len(row) == 5 else (*row, None) if len(row) == 6 else tuple(row) for row in rows]
         self._actions = [row[6] for row in rows]          # kept fresh even when the rows are not rebuilt
@@ -168,7 +165,7 @@ class Rows:
             ctk.CTkLabel(head, text=name, font=(SEMI, 13), text_color=TEXT, anchor="w",
                          height=20).pack(side="left")
             if lamp:
-                Lamp(head, lamp).pack(side="left", padx=(8, 0))
+                live_dot(head).pack(side="left", padx=(8, 0))
             if detail:
                 ctk.CTkLabel(body, text=detail, font=(FONT, 12), text_color=MUTED, anchor="w", justify="left",
                              wraplength=self.wrap, height=18).pack(fill="x")

@@ -95,7 +95,7 @@ fun ConnectionSheet(
                 "paired",
             ),
             laptopName = found?.name,
-            deviceName = if (LocalConfiguration.current.smallestScreenWidthDp >= 600) "Tablet" else "Phone",
+            deviceName = dev.phonemic.ui.DeviceKind.name(LocalConfiguration.current.smallestScreenWidthDp),
         )
     }
 

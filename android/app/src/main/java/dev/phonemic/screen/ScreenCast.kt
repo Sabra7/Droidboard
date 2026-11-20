@@ -207,7 +207,7 @@ object ScreenClient {
         val s = surface ?: return
         if (width == 0 || decoder != null) return
         decoder = runCatching { H264Decoder(s, width, height) }.getOrNull()
-        if (decoder == null) ScreenState.status = "This tablet could not start the H.264 decoder"
+        if (decoder == null) ScreenState.status = "This device could not start the H.264 decoder"
         else send(ScreenPacket.keyframeRequest())          // a decoder starts clean on a key frame
     }
 

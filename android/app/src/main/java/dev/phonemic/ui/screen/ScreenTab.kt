@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -58,6 +59,7 @@ import dev.phonemic.screen.ScreenClient
 import dev.phonemic.screen.ScreenPacket
 import dev.phonemic.screen.ScreenState
 import dev.phonemic.ui.DeckIcon
+import dev.phonemic.ui.DeviceKind
 import dev.phonemic.ui.GlassCard
 import dev.phonemic.ui.RunOnce
 import dev.phonemic.ui.StateColors
@@ -117,13 +119,16 @@ fun ScreenTab(hazeState: HazeState, picture: @Composable (Modifier) -> Unit, mod
                     Spacer(Modifier.size(8.dp))
                     LiveDot(online, "Live")
                     Spacer(Modifier.size(8.dp))
-                    Text(status, fontSize = 13.sp, color = ink.copy(0.75f))
+                    // one line: on a phone a long status would wrap under the title
+                    Text(status, fontSize = 13.sp, color = ink.copy(0.75f), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Extend", extend) { extend = true; ScreenState.extend = true; ScreenState.save(ctx) }
                     Chip("Mirror", !extend) { extend = false; ScreenState.extend = false; ScreenState.save(ctx) }
                 }
-                if (!extend) Text("A copy of your laptop's main screen on the tablet.", fontSize = 15.sp, color = ink.copy(0.85f))
+                val device = DeviceKind.name(window.smallestScreenWidthDp).lowercase()
+                if (!extend) Text("A copy of your laptop's main screen on this $device.", fontSize = 15.sp, color = ink.copy(0.85f))
                 if (note.isNotEmpty()) Text(note, fontSize = 14.sp, color = StateColors.Red)
                 if (active) {
                     OutlinedButton(

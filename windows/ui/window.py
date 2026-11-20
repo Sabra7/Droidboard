@@ -19,7 +19,7 @@ from ui import winstartup
 from ui.checks import Checks
 from ui.control import PRESET_LABELS, PRESETS, MuteState, icon_state, parse_latency_summary, preset_buffers, tooltip
 from ui.widgets import BAD, BG, CARD, FONT, GOOD, MONO, MUTED, RAISED, SEMI, TEXT, WARN
-from ui.widgets import (Chart, Lamp, LogView, Rows, Tile, card_title, icon, make_card, small_button,
+from ui.widgets import (Chart, LogView, Rows, Tile, card_title, icon, make_card, small_button,
 
 
                         windows_accent)
@@ -116,7 +116,6 @@ def run(jb, stats, net, stop_event, port, wifi=False, settings=None, startup_arg
     dot.pack(side="left", padx=(12, 8))
     status = ctk.CTkLabel(pill, text="Waiting for phone", font=(FONT, 13), text_color=TEXT)
     status.pack(side="left", padx=(0, 14), pady=4)
-    on_air = Lamp(pill, "ON AIR")
 
     def hide():
         if icon_ref[0] is not None:
@@ -450,13 +449,13 @@ def run(jb, stats, net, stop_event, port, wifi=False, settings=None, startup_arg
             if p["active"] and stats.connected:
                 since = dashboard.duration(now - online_since[0]) if online_since[0] else ""
                 rows.append(("smartphone", MUTED, "Phone mic" if len(phones) == 1 else p["name"],
-                             dashboard.mic_line(stats), since, "ON AIR" if heard else ""))
+                             dashboard.mic_line(stats), since, "live" if heard else ""))
             elif not p["active"]:     # waiting: a click makes it the phone the mic plays
                 rows.append(("smartphone", MUTED, p["name"], f"{p['transport']} · standby, click to use it",
                              dashboard.duration(now - p["since"]), "", act_use(p["token"])))
         if stats.connected and not any(p["active"] for p in phones):     # Bluetooth is not on the hub
             since = dashboard.duration(now - online_since[0]) if online_since[0] else ""
-            rows.append(("smartphone", MUTED, "Phone mic", dashboard.mic_line(stats), since, "ON AIR" if heard else ""))
+            rows.append(("smartphone", MUTED, "Phone mic", dashboard.mic_line(stats), since, "live" if heard else ""))
         for d in (stats.devices.devices() if stats.devices else []):
             since = min((c["since"] for c in stats.devices.connections() if c["id"] == d["id"]), default=now)
             rows.append(("tablet", MUTED, d["name"], f"{', '.join(d['kinds'])} · {d['addr']}",
@@ -516,11 +515,6 @@ def run(jb, stats, net, stop_event, port, wifi=False, settings=None, startup_arg
         else:
             dot.configure(text_color=MUTED)
             status.configure(text="Waiting for phone")
-        heard = online and not muted
-        if heard and not on_air.winfo_manager():
-            on_air.pack(side="left", padx=(0, 12))
-        elif not heard and on_air.winfo_manager():
-            on_air.pack_forget()
 
         buffered = jb.buffered_ms()
         target = round(jb.target * 1000 / jb.rate)

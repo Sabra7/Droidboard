@@ -37,6 +37,8 @@ android {
         debug {
             // ./gradlew assembleDebug -PtestSuffix=1 builds a copy that installs next to the real app (dev.phonemic.dimtest)
             if (project.hasProperty("testSuffix")) applicationIdSuffix = ".dimtest"
+            // same key as release, so a debug build and the GitHub Release APK can update each other
+            if (keystore.exists()) signingConfig = signingConfigs.getByName("release")
         }
         release {
             if (keystore.exists()) signingConfig = signingConfigs.getByName("release")
