@@ -33,8 +33,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -61,6 +64,7 @@ import dev.phonemic.audio.MicState
 import dev.phonemic.audio.VoiceFilter
 import dev.phonemic.camera.CameraState
 import dev.phonemic.screen.ScreenClient
+import dev.phonemic.screen.ScreenState
 import dev.phonemic.ui.AppTab
 import dev.phonemic.ui.DeckIcon
 import dev.phonemic.ui.GlassBackground
@@ -80,7 +84,10 @@ import dev.phonemic.ui.camera.CameraPlaceholder
 import dev.phonemic.ui.camera.CameraTab
 import dev.phonemic.ui.deck.DeckPanel
 import dev.phonemic.ui.rememberTabMotion
+import dev.phonemic.ui.findActivity
+import dev.phonemic.ui.home.dim.DimEditor
 import dev.phonemic.ui.screen.ScreenCastOverlay
+import dev.phonemic.ui.screen.ScreenPicture
 import dev.phonemic.ui.screen.ScreenTab
 import dev.phonemic.ui.screen.ScreenUi
 import kotlinx.coroutines.delay
@@ -128,6 +135,7 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
     var codecNote by remember { mutableStateOf(MicState.codecNote) }
     var channelsInUse by remember { mutableIntStateOf(MicState.channelsInUse) }
     var dimmed by remember { mutableStateOf(false) }
+    var editingDim by rememberSaveable { mutableStateOf(false) }       // the Dim layout editor (Settings > Dim screen)
     var callMuted by remember { mutableStateOf(MicState.callMuted) }
     var lastTouch by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }   // for Settings > Dim
     var cameraOn by remember { mutableStateOf(CameraState.sending) }
@@ -142,7 +150,7 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
             active = MicState.active
             activeMic = MicState.activeMic; micNote = MicState.micNote; codecNote = MicState.codecNote
             channelsInUse = MicState.channelsInUse
-            if (!dimmed && !showLinks && !showMics &&
+            if (!dimmed && !showLinks && !showMics && !editingDim &&
                 AutoRules.shouldDim(MicState.dimSeconds, running, SystemClock.elapsedRealtime() - lastTouch)) {
                 dimmed = true
             }
@@ -264,6 +272,8 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
         // Phone: one column per tab, a glass tab bar at the bottom.
         // Tablet (wide): a glass rail on the left; Home shows the mic and the deck side by side.
         // While a sheet is open the page is also the source of its blur; closed, nothing extra is drawn.
+        // the laptop picture: one instance, moved between the Screen tab and the full-screen overlay
+        val screenPicture = remember { movableContentOf { m: Modifier -> ScreenPicture(m) } }
         val sheetOpen = showLinks || showMics
         Box(Modifier.fillMaxSize().then(if (sheetOpen && Build.VERSION.SDK_INT >= 31) Modifier.haze(sheetHaze) else Modifier)
             .pointerInput(Unit) {       // any touch counts as use for Settings > Dim (watched, never consumed)
@@ -295,7 +305,7 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
                         color = MaterialTheme.colorScheme.onBackground)
                     // full screen: the Screen tab opens the laptop picture (the cast) over everything
                     if (motion.shown == AppTab.SCREEN) {
-                        GlassIconButton("maximize", "Full screen", onClick = { ScreenClient.start(ctx); ScreenUi.visible = true })
+                        GlassIconButton("maximize", "Full screen", onClick = { if (!ScreenState.active) ScreenClient.start(ctx); ScreenUi.visible = true })
                         Spacer(Modifier.width(8.dp))
                     }
                     GlassIconButton("settings", "Settings", onClick = { showLinks = true })
@@ -308,7 +318,7 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
                         when {
                             page == AppTab.DECK -> DeckPanel(hazeState, onSetup = { showLinks = true },
                                 modifier = Modifier.weight(1f).fillMaxWidth(), columns = PHONE_DECK_COLUMNS)
-                            page == AppTab.SCREEN -> ScreenTab(hazeState, Modifier.weight(1f).fillMaxWidth())
+                            page == AppTab.SCREEN -> ScreenTab(hazeState, screenPicture, Modifier.weight(1f).fillMaxWidth())
                             // the camera only opens once its page has landed, never while a swipe passes by
                             page == AppTab.CAMERA -> if (settled) CameraTab(hazeState, Modifier.weight(1f).fillMaxWidth())
                                 else CameraPlaceholder(hazeState, Modifier.weight(1f).fillMaxWidth())
@@ -372,6 +382,7 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
                     MicState.save(ctx)
                     onTransportChanged()
                 },
+                onCustomizeDim = { showLinks = false; editingDim = true },
             )
         }
 
@@ -395,9 +406,24 @@ fun MainScreen(onToggle: () -> Unit, onTransportChanged: () -> Unit) {
             )
         }
 
-        if (ScreenUi.visible) {      // the second screen: the laptop picture over everything
-            ScreenCastOverlay(onExit = { ScreenUi.visible = false; ScreenClient.stop() })
+        // the app left the screen (not a rotation): stop casting, like the camera. Otherwise the laptop keeps
+        // encoding, and in Extend mode keeps a monitor nobody sees, while this process may be killed.
+        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val activity = ctx.findActivity()
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true && ScreenState.active) {
+                    ScreenClient.stop(); ScreenUi.visible = false
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
+        if (ScreenUi.visible) {      // the second screen: the laptop picture over everything
+            ScreenCastOverlay(onExit = { ScreenUi.visible = false }) { m -> screenPicture(m) }   // casting goes on inside the tab
+        }
+
+        if (editingDim) DimEditor(reduceMotion, onDone = { editingDim = false })
 
         if (dimmed) {
             DimScreen(

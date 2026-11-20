@@ -6,6 +6,9 @@ Pillow
 # button deck: Windows actions (pywin32) and the editor window (customtkinter)
 pywin32
 customtkinter
+# laptop readings for the tablet's Dim screen: CPU/RAM (psutil), GPU via NVML (optional, NVIDIA only)
+psutil
+nvidia-ml-py
 # Bluetooth transport (optional, Windows only)
 winrt-runtime
 winrt-Windows.Foundation

@@ -36,16 +36,31 @@ object DeckClient {
     @Volatile private var socket: Socket? = null
     @Volatile private var refused = ""          // host+code the laptop refused: don't hammer it until they change
 
+    private var users = 0                        // the Deck screen and the Dim screen's stats each hold one
+
+    /** Counted: the connection runs while somebody needs it (the Deck screen, or a Stats widget in Dim). */
+    @Synchronized
     fun start() {
+        if (++users > 1) return
         val mine = ++generation
         Thread({ loop(mine) }, "deck-client").apply { isDaemon = true }.start()
     }
 
+    @Synchronized
     fun stop() {
+        if (users == 0 || --users > 0) return
         generation++
         runCatching { socket?.close() }
         DeckState.online = false
+        LaptopStats.clear()
     }
+
+    /** [LaptopStats.hook]: a Stats widget appeared (true) or the last one left (false). */
+    fun onWatch(on: Boolean) {
+        if (on) { start(); sendWatch(true) } else { sendWatch(false); stop() }
+    }
+
+    private fun sendWatch(on: Boolean) = send(JSONObject().put("t", "watch").put("on", on))
 
     fun press(id: String) = send(JSONObject().put("t", "press").put("id", id))
 
@@ -77,6 +92,7 @@ object DeckClient {
                 if (generation == mine) DeckState.status = "Can't reach the laptop"
             }
             DeckState.online = false
+            LaptopStats.clear()                  // numbers from before the drop must not look current
             socket = null
             sleepQuietly(2000)
         }
@@ -90,6 +106,7 @@ object DeckClient {
         socket = s
         s.use {
             send(JSONObject().put("t", "hello").put("code", code).put("device", DeviceProfiles.hello()))
+            if (LaptopStats.watching()) sendWatch(true)       // after a reconnect the laptop has forgotten us
             val pinger = Thread({
                 while (generation == mine && !s.isClosed) {
                     sleepQuietly(PING_MS)
@@ -117,6 +134,11 @@ object DeckClient {
                 DeckState.status = "Connected"
                 DeckState.revision++
             }
+            "stats" -> LaptopStats.update(
+                android.os.SystemClock.elapsedRealtime(),
+                m.optIntOrNull("cpu"), m.optIntOrNull("ram"), m.optIntOrNull("gpu"),
+                m.optIntOrNull("vram"), m.optIntOrNull("temp"),
+            )
             "result" -> if (!m.optBoolean("ok")) {
                 DeckState.result = m.optString("msg").ifBlank { "Failed" }
                 DeckState.resultAt = android.os.SystemClock.elapsedRealtime()
@@ -130,4 +152,6 @@ object DeckClient {
         }
     }
 
+    private fun JSONObject.optIntOrNull(key: String): Int? =
+        if (isNull(key) || !has(key)) null else optDouble(key, Double.NaN).takeIf { !it.isNaN() }?.toInt()
 }

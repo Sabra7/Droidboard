@@ -85,7 +85,7 @@ import dev.phonemic.ui.DeckIcon
 import dev.phonemic.ui.GlassCard
 import dev.phonemic.ui.LocalIsDark
 import dev.phonemic.ui.StateColors
-import dev.phonemic.ui.home.LiveLamp
+import dev.phonemic.ui.home.LiveDot
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -167,8 +167,11 @@ fun DeckPanel(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Deck", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = ink)
                 Spacer(Modifier.size(12.dp))
-                if (online) LiveLamp("LIVE")
-                else Text("Offline", fontSize = 13.sp, color = ink.copy(0.75f))
+                LiveDot(online, "Live")
+                if (!online) {
+                    Spacer(Modifier.size(8.dp))
+                    Text("Offline", fontSize = 13.sp, color = ink.copy(0.75f))
+                }
                 Spacer(Modifier.weight(1f))
                 if (deck != null && selected == null) {
                     TextButton(onClick = { editing = !editing }, modifier = Modifier.heightIn(min = 48.dp)) {

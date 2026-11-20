@@ -1,6 +1,7 @@
 package dev.phonemic.ui.home
 
 import android.os.Build
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,11 +44,16 @@ import dev.phonemic.audio.MicState
 import dev.phonemic.audio.SavedLaptops
 import dev.phonemic.ui.DeckIcon
 import dev.phonemic.ui.GlassCard
+import dev.phonemic.ui.GlassPill
+import dev.phonemic.ui.StateColors
+import dev.phonemic.ui.findActivity
+import dev.phonemic.ui.home.dim.DimBrightness
+import kotlinx.coroutines.delay
 import dev.phonemic.ui.Hint
 
 /**
  * What the gear on Home opens: Connection first (the way, Wi-Fi, the laptop starting the mic), then
- * Notification, Automatic, Laptops and About. Every new option starts off, so nothing changes until it is used.
+ * Notification, Automatic, Dim screen, Laptops and About. Every new option starts off, so nothing changes until it is used.
  */
 @Composable
 fun SettingsSheet(
@@ -53,6 +63,7 @@ fun SettingsSheet(
     live: Boolean,
     reduceMotion: Boolean,
     onSelect: (Int) -> Unit,
+    onCustomizeDim: () -> Unit,
 ) {
     SectionLabel("Connection")
     ConnectionSheet(hazeState, transport, active, live, reduceMotion, onSelect)
@@ -64,6 +75,9 @@ fun SettingsSheet(
 
     SectionLabel("Automatic")
     AutomaticCard(hazeState)
+
+    SectionLabel("Dim screen")
+    DimCard(hazeState, onCustomizeDim)
 
     SectionLabel("Laptops")
     LaptopsCard(hazeState)
@@ -97,6 +111,73 @@ private fun AutomaticCard(hazeState: HazeState) {
             SettingSwitch("Stop at low battery",
                 "Below ${AutoRules.LOW_BATTERY}%, unless the phone is charging.", lowBattery) {
                 lowBattery = it; MicState.lowBatteryStop = it; MicState.save(ctx)
+            }
+        }
+    }
+}
+
+/** Brightness of the Dim screen, and the way into its layout editor. */
+@Composable
+private fun DimCard(hazeState: HazeState, onCustomize: () -> Unit) {
+    val ctx = LocalContext.current
+    val window = ctx.findActivity()?.window
+    var slider by remember { mutableFloatStateOf(DimBrightness.toSlider(MicState.dimBrightness)) }
+    var previewing by remember { mutableIntStateOf(0) }
+    var confirmReset by remember { mutableStateOf(false) }
+    val brightness = DimBrightness.fromSlider(slider)
+    // while the slider moves, the screen itself shows the brightness for a moment
+    LaunchedEffect(previewing) {
+        if (previewing == 0) return@LaunchedEffect
+        delay(1500)
+        window?.let { it.attributes = it.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE } }
+    }
+    DisposableEffect(window) {
+        onDispose {
+            window?.let { it.attributes = it.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE } }
+        }
+    }
+    LaunchedEffect(confirmReset) {
+        if (confirmReset) { delay(3000); confirmReset = false }
+    }
+    GlassCard(hazeState) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SettingText("Brightness", "Of the Dim screen. The default is the lowest.", Modifier.weight(1f))
+                Spacer(Modifier.size(12.dp))
+                Text("${DimBrightness.percent(brightness)}%", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+            Slider(
+                colors = dev.phonemic.ui.home.dim.quietSliderColors(),
+                value = slider,
+                onValueChange = {
+                    slider = it
+                    window?.let { w -> w.attributes = w.attributes.apply { screenBrightness = DimBrightness.fromSlider(it) } }
+                },
+                onValueChangeFinished = {
+                    MicState.dimBrightness = DimBrightness.fromSlider(slider)
+                    MicState.save(ctx)
+                    previewing++
+                },
+            )
+            SettingsDivider()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                GlassPill(onClick = onCustomize, onClickLabel = "Arrange the widgets of the Dim screen") {
+                    DeckIcon("layout-grid", MaterialTheme.colorScheme.onSurface, 18.dp)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Customize layout", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        color = MaterialTheme.colorScheme.onSurface)
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = {
+                    if (!confirmReset) { confirmReset = true; return@TextButton }
+                    confirmReset = false
+                    MicState.dimLayoutPortrait = ""; MicState.dimLayoutLandscape = ""
+                    MicState.save(ctx)
+                }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(if (confirmReset) "Tap again to reset" else "Reset layout", fontSize = 14.sp,
+                        color = if (confirmReset) StateColors.Red else MaterialTheme.colorScheme.primary)
+                }
             }
         }
     }

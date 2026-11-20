@@ -45,6 +45,9 @@ object MicState {
     @Volatile var muteOnCall = false            // the laptop hears silence during a phone or VoIP call
     @Volatile var dimSeconds = 0                // dim the screen while streaming after this long untouched
     @Volatile var lowBatteryStop = false        // stop below AutoRules.LOW_BATTERY %, off the charger
+    @Volatile var dimBrightness = 0.01f         // screen brightness of the Dim screen, 0.01 (1 %) .. 1
+    @Volatile var dimLayoutPortrait = ""        // the Dim screen's widgets (JSON, see DimConfig); empty = the default
+    @Volatile var dimLayoutLandscape = ""
     @Volatile var callMuted = false             // set by the service while a call is on (never saved)
     @Volatile var autoStartHeld = false         // the user pressed Stop: no auto start until the app comes back
     @Volatile var laptops: List<SavedLaptop> = emptyList()
@@ -70,6 +73,9 @@ object MicState {
         muteOnCall = p.getBoolean("muteOnCall", false)
         dimSeconds = p.getInt("dimSeconds", 0).takeIf { it in AutoRules.DIM_SECONDS } ?: 0
         lowBatteryStop = p.getBoolean("lowBatteryStop", false)
+        dimBrightness = p.getFloat("dimBrightness", 0.01f).coerceIn(0.01f, 1f)
+        dimLayoutPortrait = p.getString("dimLayoutPortrait", "") ?: ""
+        dimLayoutLandscape = p.getString("dimLayoutLandscape", "") ?: ""
         laptops = SavedLaptops.decode(p.getString("laptops", "") ?: "")
         wifiName = p.getString("wifiName", "") ?: ""
     }
@@ -131,6 +137,9 @@ object MicState {
             .putBoolean("muteOnCall", muteOnCall)
             .putInt("dimSeconds", dimSeconds)
             .putBoolean("lowBatteryStop", lowBatteryStop)
+            .putFloat("dimBrightness", dimBrightness)
+            .putString("dimLayoutPortrait", dimLayoutPortrait)
+            .putString("dimLayoutLandscape", dimLayoutLandscape)
             .putString("laptops", SavedLaptops.encode(laptops))
             .putString("wifiName", wifiName)
             .apply()

@@ -56,6 +56,7 @@ import dev.phonemic.ui.RunOnce
 import dev.phonemic.ui.StateColors
 import dev.phonemic.ui.Ui
 import dev.phonemic.ui.deck.Chip
+import dev.phonemic.ui.home.LiveDot
 import kotlinx.coroutines.delay
 
 
@@ -125,7 +126,7 @@ fun CameraTab(hazeState: HazeState, modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Camera", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = ink)
                 Spacer(Modifier.size(8.dp))
-                Box(Modifier.size(8.dp).background(if (sending && online) StateColors.Live else ink.copy(0.35f), CircleShape))
+                LiveDot(sending && online, "Live")
                 Spacer(Modifier.size(8.dp))
                 Text(status, fontSize = 13.sp, color = ink.copy(0.75f))
             }

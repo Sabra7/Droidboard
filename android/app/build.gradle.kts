@@ -34,6 +34,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // ./gradlew assembleDebug -PtestSuffix=1 builds a copy that installs next to the real app (dev.phonemic.dimtest)
+            if (project.hasProperty("testSuffix")) applicationIdSuffix = ".dimtest"
+        }
         release {
             if (keystore.exists()) signingConfig = signingConfigs.getByName("release")
         }

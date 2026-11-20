@@ -4,7 +4,12 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +63,7 @@ import dev.phonemic.ui.RunOnce
 import dev.phonemic.ui.StateColors
 import dev.phonemic.ui.Ui
 import dev.phonemic.ui.deck.Chip
+import dev.phonemic.ui.home.LiveDot
 import dev.phonemic.ui.findActivity
 import kotlinx.coroutines.delay
 
@@ -67,19 +73,24 @@ object ScreenUi {
     var visible by mutableStateOf(false)
 }
 
-/** The Screen tab: the tablet as a second screen for the laptop (the laptop picture is streamed to it). */
+/**
+ * The Screen tab: the tablet as a second screen for the laptop. Once started, the laptop
+ * [picture] sits inside the tab under the settings; the header's Full screen button moves the
+ * same picture over the whole screen ([ScreenCastOverlay]), and leaving full screen keeps casting.
+ */
 @Composable
-fun ScreenTab(hazeState: HazeState, modifier: Modifier = Modifier) {
+fun ScreenTab(hazeState: HazeState, picture: @Composable (Modifier) -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val ink = MaterialTheme.colorScheme.onSurface
     RunOnce { ScreenState.load(ctx) }
     var extend by remember { mutableStateOf(ScreenState.extend) }
     var status by remember { mutableStateOf(ScreenState.status) }
     var online by remember { mutableStateOf(ScreenState.online) }
+    var active by remember { mutableStateOf(ScreenState.active) }
     var note by remember { mutableStateOf(ScreenState.note) }
     LaunchedEffect(Unit) {
         while (true) {
-            status = ScreenState.status; online = ScreenState.online; note = ScreenState.note
+            status = ScreenState.status; online = ScreenState.online; note = ScreenState.note; active = ScreenState.active
             delay(300)
         }
     }
@@ -88,7 +99,15 @@ fun ScreenTab(hazeState: HazeState, modifier: Modifier = Modifier) {
         onDispose { LaptopFinder.stop() }
     }
 
-    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Ui.Gap)) {
+    val showPicture = active && !ScreenUi.visible
+    // with room, the picture card fills the rest of the tab; in a short or narrow window the page scrolls
+    // instead and the card keeps a 16:9 shape (a weight inside a scrolling column would get 0 height).
+    // The window size comes from the configuration, not BoxWithConstraints: that would subcompose the
+    // picture during measure and break its move into the full-screen overlay.
+    val window = LocalConfiguration.current
+    val roomy = showPicture && window.screenHeightDp >= 560 && window.screenWidthDp >= 600
+    Column(modifier.then(if (roomy) Modifier else Modifier.verticalScroll(rememberScrollState())),
+        verticalArrangement = Arrangement.spacedBy(Ui.Gap)) {
         GlassCard(hazeState) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -96,7 +115,7 @@ fun ScreenTab(hazeState: HazeState, modifier: Modifier = Modifier) {
                     Spacer(Modifier.size(8.dp))
                     Text("Second screen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = ink)
                     Spacer(Modifier.size(8.dp))
-                    Box(Modifier.size(8.dp).background(if (online) StateColors.Live else ink.copy(0.35f), CircleShape))
+                    LiveDot(online, "Live")
                     Spacer(Modifier.size(8.dp))
                     Text(status, fontSize = 13.sp, color = ink.copy(0.75f))
                 }
@@ -106,38 +125,36 @@ fun ScreenTab(hazeState: HazeState, modifier: Modifier = Modifier) {
                 }
                 if (!extend) Text("A copy of your laptop's main screen on the tablet.", fontSize = 15.sp, color = ink.copy(0.85f))
                 if (note.isNotEmpty()) Text(note, fontSize = 14.sp, color = StateColors.Red)
-                Button(
-                    onClick = { ScreenClient.start(ctx); ScreenUi.visible = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = StateColors.Live, contentColor = StateColors.OnLive),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                ) { Text("Start second screen", fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+                if (active) {
+                    OutlinedButton(
+                        onClick = { ScreenClient.stop() },
+                        border = BorderStroke(1.5.dp, StateColors.Red),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    ) { Text("Stop second screen", fontSize = 17.sp, color = StateColors.Red) }
+                } else {
+                    Button(
+                        onClick = { ScreenClient.start(ctx) },
+                        colors = ButtonDefaults.buttonColors(containerColor = StateColors.Live, contentColor = StateColors.OnLive),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    ) { Text("Start second screen", fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+        if (showPicture) {
+            GlassCard(hazeState, if (roomy) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                picture(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)))
             }
         }
     }
 }
 
-/** The cast itself: the laptop picture over the whole tablet screen. Touches go to the laptop. */
+/**
+ * The laptop picture with touch going back to the laptop. One instance is moved between the tab
+ * and the full-screen overlay (movableContentOf in MainScreen): the move re-creates the surface,
+ * so the decoder restarts on a key frame (a short black moment), but the connection stays.
+ */
 @Composable
-fun ScreenCastOverlay(onExit: () -> Unit) {
-    val view = LocalView.current
-    val activity = LocalContext.current.findActivity()
-    val window = activity?.window
-    DisposableEffect(window) {
-        // the laptop picture is wide: a phone held upright would show it as a thin strip
-        val before = activity?.requestedOrientation
-        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val bars = window?.let { WindowCompat.getInsetsController(it, view) }
-        bars?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        bars?.hide(WindowInsetsCompat.Type.systemBars())
-        view.keepScreenOn = true
-        onDispose {
-            view.keepScreenOn = false
-            bars?.show(WindowInsetsCompat.Type.systemBars())
-            activity?.requestedOrientation = before ?: android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
-    }
-    BackHandler(true) { onExit() }
-
+fun ScreenPicture(modifier: Modifier = Modifier) {
     var online by remember { mutableStateOf(ScreenState.online) }
     var status by remember { mutableStateOf(ScreenState.status) }
     var ratio by remember { mutableStateOf(16f / 9f) }
@@ -149,15 +166,16 @@ fun ScreenCastOverlay(onExit: () -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier.background(Color.Black)) {
         Box(Modifier.align(Alignment.Center).aspectRatio(ratio)) {
             AndroidView(
                 factory = { c ->
                     SurfaceView(c).apply {
+                        keepScreenOn = true             // watching the laptop: the tablet must not doze off
                         holder.addCallback(object : SurfaceHolder.Callback {
                             override fun surfaceCreated(h: SurfaceHolder) = ScreenClient.attach(h.surface)
                             override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, hh: Int) {}
-                            override fun surfaceDestroyed(h: SurfaceHolder) = ScreenClient.attach(null)
+                            override fun surfaceDestroyed(h: SurfaceHolder) = ScreenClient.detach(h.surface)
                         })
                     }
                 },
@@ -195,10 +213,39 @@ fun ScreenCastOverlay(onExit: () -> Unit) {
         if (!online) {
             Text(status, fontSize = 16.sp, color = Color.White.copy(0.8f), modifier = Modifier.align(Alignment.Center).padding(24.dp))
         }
+    }
+}
+
+/** Full screen: [content] (the laptop picture) over the whole tablet, system bars hidden, landscape. The minimize button or Back leaves it; casting goes on. */
+@Composable
+fun ScreenCastOverlay(onExit: () -> Unit, content: @Composable (Modifier) -> Unit) {
+    val view = LocalView.current
+    val activity = LocalContext.current.findActivity()
+    val window = activity?.window
+    DisposableEffect(window) {
+        // the laptop picture is wide: a phone held upright would show it as a thin strip
+        val before = activity?.requestedOrientation
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val bars = window?.let { WindowCompat.getInsetsController(it, view) }
+        bars?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars?.hide(WindowInsetsCompat.Type.systemBars())
+        view.keepScreenOn = true
+        onDispose {
+            view.keepScreenOn = false
+            bars?.show(WindowInsetsCompat.Type.systemBars())
+            activity?.requestedOrientation = before ?: android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+    BackHandler(true) { onExit() }
+
+    // the root takes the touches on the black bars; otherwise they fall through to the tab underneath (its chips, Stop, the gear)
+    Box(Modifier.fillMaxSize().background(Color.Black)
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})) {
+        content(Modifier.fillMaxSize())
         Box(
             Modifier.align(Alignment.TopStart).padding(10.dp).size(44.dp).clip(CircleShape)
-                .background(Color.White.copy(0.14f)).clickable(onClickLabel = "Leave the second screen", onClick = onExit),
+                .background(Color.White.copy(0.14f)).clickable(onClickLabel = "Leave full screen", onClick = onExit),
             contentAlignment = Alignment.Center,
-        ) { DeckIcon("x", Color.White.copy(0.75f), 20.dp) }
+        ) { DeckIcon("minimize", Color.White.copy(0.75f), 20.dp) }
     }
 }

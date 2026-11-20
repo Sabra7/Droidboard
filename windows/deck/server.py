@@ -4,8 +4,14 @@ One JSON object per line, in both directions. The first line from the tablet mus
 {"t": "hello", "code": "123456", "device": {"id": "...", "name": "..."}}; a connection from this
 laptop itself (adb reverse) needs no code.
 
-  tablet -> laptop   hello | get | press {id} | save {deck}
+  tablet -> laptop   hello | get | press {id} | save {deck} | watch {on}
   laptop -> tablet   deck {deck} | result {id, ok, msg} | error {msg, fatal?}
+                     | stats {cpu, ram, gpu, vram, temp}
+
+watch {"t":"watch","on":true|false}: the Dim screen's Stats widget asks for the laptop's readings. While a
+connection is watching it gets {"t":"stats","cpu":12,"ram":47,"gpu":3,"vram":20,"temp":41} every 2 seconds
+(whole percents, temp in degrees C = the GPU's; a value is null when it can't be read). One sampler thread
+(deck/stats.py) serves all watchers; it runs only while somebody watches. A dropped connection stops watching.
 """
 import json
 import threading
@@ -14,6 +20,7 @@ import time
 from connection.pairing import is_local, listen_socket, peer_host
 from deck.actions import execute
 from deck.layout import describe, new_actions, validate_deck
+from deck.stats import StatsHub
 
 
 DECK_PORT = 50508
@@ -88,7 +95,8 @@ def read_hello(conn, addr, limiter, code, max_len):
 
 class DeckServer:
     def __init__(self, store, code, hooks=None, backend=None, host="127.0.0.1", port=DECK_PORT,
-                 approver=None, registry=None):
+                 approver=None, registry=None, stats=None):
+        self.stats = stats if stats is not None else StatsHub()      # shared readings for tablets that watch
         self.registry = registry          # devices.DeviceRegistry: who is connected
         # approver(text) -> bool asks on the laptop before a tablet may add or change an action;
         # None approves everything (tests, and edits made on the laptop itself)
@@ -164,6 +172,7 @@ class DeckServer:
         except (OSError, ValueError):
             pass
         finally:
+            self.stats.remove(conn)
             if token is not None:
                 self.registry.remove(token)
             with self._lock:
@@ -207,6 +216,11 @@ class DeckServer:
                 return
             ok, text = execute(button["action"], self.hooks, self.backend)
             send_line(conn, {"t": "result", "id": button["id"], "ok": ok, "msg": text})
+        elif kind == "watch":
+            if msg.get("on") is True:
+                self.stats.add(conn, lambda m, c=conn: send_line(c, m))
+            else:
+                self.stats.remove(conn)
         elif kind == "save":
             try:
                 deck = validate_deck(msg.get("deck"))

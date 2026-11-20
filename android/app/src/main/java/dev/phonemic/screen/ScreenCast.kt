@@ -184,11 +184,16 @@ object ScreenClient {
         synchronized(lock) { releaseDecoder() }
     }
 
-    /** The full-screen view got (or lost) its surface. */
+    /** The picture view got its surface. */
     fun attach(s: Surface?) = synchronized(lock) {
         surface = s
         releaseDecoder()
         if (s != null) openDecoder()
+    }
+
+    /** The picture view lost [s]. Only that surface: another view may already have attached a new one. */
+    fun detach(s: Surface) = synchronized(lock) {
+        if (surface === s) { surface = null; releaseDecoder() }
     }
 
     fun sendTouch(action: Int, finger: Int, x: Float, y: Float) = send(ScreenPacket.touch(action, finger, x, y))
